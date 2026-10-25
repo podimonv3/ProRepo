@@ -47,9 +47,4 @@ class script(object):
 
     CUSTOM_FILE_CAPTION = """<code>{file_name}</code>"""
     
-    NO_TXT = """<b><u>➪ Check Spell</u></b>
-    
-<b><i>
-➳ താഴെ തന്നിരിക്കുന്ന ശെരിയായ SPELLING ഉപയോഗിച്ച് SEARCH തുടരുക 
-➳ കിട്ടാത്ത പക്ഷം request / google ബട്ടൺ ഉപയോഗിക്കുക
-➳ OTT ഇറങ്ങുന്നതുവരെ wait ചെയ്യുക</i></b>"""
+    NO_TXT = """<b><u>➪ Check Spell</u></b>"""
