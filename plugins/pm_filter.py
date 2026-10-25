@@ -86,137 +86,56 @@ async def google_alert_handler(bot, query):
 
 
 
-@Client.on_message(filters.private & (filters.text | filters.photo | filters.video | filters.sticker) & filters.incoming)
+
+@Client.on_message(filters.private & filters.text & filters.incoming)
 async def pm_text(bot: Client, message):
     user_id = message.from_user.id
-    user = message.from_user.first_name or "User"
-
-    if message.text and (message.text.startswith("/") or message.text.startswith("#")): return
-    if user_id in ADMINS: return
-
-    # 1. ടെക്സ്റ്റ് മെസ്സേജ് ഉണ്ടോ എന്ന് ഉറപ്പുവരുത്തുന്നു
-    if not message.text:
-        return
-
-    text_to_check = message.text.strip()
-
-    # 2. ⚡ [ആദ്യ ഘട്ടം] ഫോർമാറ്റ് പരിശോധന (Format Validation)
-    # മെസ്സേജിന്റെ അവസാനം വർഷം (eg: 2024) ഇല്ലെങ്കിൽ ഡാറ്റാബേസ് സെർച്ച് ചെയ്യാതെ നേരിട്ട് Wrong Format മെസ്സേജ് അയക്കും
-    if not re.search(r'\b(19\d{2}|20[0-2]\d)\b$', text_to_check):
-        user_data = await db.col.find_one({'id': int(user_id)}) if hasattr(db, "col") else None
-        is_muted = user_data.get('is_muted', False) if user_data else False
-        warning_sent = user_data.get('warning_sent', False) if user_data else False
-
-        if is_muted:
-            if not warning_sent:
-                await db.col.update_one({'id': user_id}, {'$set': {'warning_sent': True}})
-                await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-                await message.reply_text(
-                    text=f"<b>⚠️ ശ്രദ്ധിക്കുക / WARNING!\n\nനിങ്ങൾ ബോട്ടിന്റെ നിയമങ്ങൾ (Rules) ലംഘിച്ചതിനാൽ അഡ്മിൻ നിങ്ങളെ മ്യൂട്ട് ചെയ്തിരിക്കുകയാണ്.\n\nനിയമങ്ങൾ വ്യക്തമായി വായിക്കാൻ താഴെയുള്ള rules ബട്ടൺ ക്ലിക്ക് ചെയ്യുക. Mute ഒഴിവാക്കാൻ അഡ്മിനെ സമീപിക്കുക @Chithralokham</b>",
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚸 READ RULES 🚸", url="https://t.me")]])
-                )
-            return
-            
-        await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-        await asyncio.sleep(0.5)
-        await message.reply_text(
-            text=f"<b>❌ Wrong Format / തെറ്റായ ഫോർമാറ്റ്!\n\nPlease send your request in this format:\n<code>Movie Name + Year</code>\n\nExample:\n<code>Kuruthi 2021</code>\n\n💡 സിനിമയുടെ പേരിനൊപ്പം വർഷം കൂടി ടൈപ്പ് ചെയ്ത് അയക്കുക.</b>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚸 MUST READ 🚸", url="https://t.me")]])
-        )
-        return
-
-    # 3. ⚡ [രണ്ടാം ഘട്ടം] മ്യൂട്ട് പരിശോധന
-    user_data = await db.col.find_one({'id': int(user_id)}) if hasattr(db, "col") else None
-    is_muted = user_data.get('is_muted', False) if user_data else False
-    warning_sent = user_data.get('warning_sent', False) if user_data else False
-
-    # 4. ⚡ [മൂന്നാം ഘട്ടം] ഡാറ്റാബേസ് സെർച്ചിംഗ് & ക്ലീനിംഗ് (Mismatch പൂർണ്ണമായി ഒഴിവാക്കാൻ)
-    files_found = False
-    files = []
     
-    # അനാവശ്യ ചിഹ്നങ്ങളും സ്പേസുകളും മാറ്റുന്നു
-    search = re.sub(r'[\u200b\u200c\u200d\ufeff\u200e\u200f]', '', text_to_check)
-    search = re.sub(r'[\s\u00a0\u2000-\u200a\u202f\u205f\u3000]+', ' ', search)
-    search = re.sub(r"['‘’]", "", search)
-    search = re.sub(r"""[-–—\\_,#&?/( )\[\]":\.¡%“”]""", " ", search)
-    search = re.sub(r"\b(hd|full|print|file)\b", "", search, flags=re.IGNORECASE)
-
-    # ഉപയോക്താക്കൾ അയക്കാറുള്ള അനാവശ്യ വാക്കുകൾ ഒഴിവാക്കുന്നു
-    removes = {"pls","plz","plzz","please","send","snd","snt","gib","veno","venam","venum","undo","ayakkumo","und","move","multi","dubb","dub","bro","bruh","broh","dubbed","link","lnk","iruka","pannunga","pannungga","anuppunga","anupunga","anuppungga","anupungga","subtile","kitti","kitty","tharu","kittumo","kittum","da","mwonse","bhai","share","malayalm","malylm","subtitle"}
-    search_query = " ".join(w for w in search.lower().split() if w not in removes).strip()
-    
-    if not search_query:
-        await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-        await message.reply_text("<b>❌ തെറ്റായ ഫോർമാറ്റ്! ദയവായി സിനിമയുടെ പേരും വർഷവും കൃത്യമായി ടൈപ്പ് ചെയ്യൂ..</b>")
+    # 1. സ്ലാഷ് (/) ഇട്ട് തുടങ്ങുന്ന കമാൻഡുകൾ ഒഴിവാക്കുന്നു
+    if message.text.startswith("/") or user_id in ADMINS: 
         return
 
-    # ക്ലീൻ ചെയ്ത ക്വറി വെച്ച് ഡാറ്റാബേസിൽ തിരയുന്നു
-    files, offset, total_results = await get_search_results(search_query, offset=0, filter=True)
+    # 2. യൂസർ അയച്ച ടെക്സ്റ്റ് ചെറിയ അക്ഷരങ്ങളിലാക്കി എടുക്കുന്നു
+    search_query = message.text.strip().lower()
+    
+    await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
 
-    # 5. ഫയൽ കണ്ടെത്തിയാൽ ബട്ടണുകൾ നൽകുന്നു (Normal Text With Search Query Only)
+    # 3. നേരിട്ട് ഡാറ്റാബേസിൽ തിരയുന്നു
+    try:
+        files, offset, total_results = await get_search_results(search_query, offset=0, filter=True)
+    except Exception as e:
+        logger.error(f"Database Search Error: {e}")
+        return await message.reply_text("<b>❌ ഡാറ്റാബേസ് സെർച്ചിൽ തകരാർ!</b>")
+
+    # 4. ഫയലുകൾ കണ്ടെത്തിയാൽ റിസൾട്ട് നൽകുന്നു
     if files:
-        files_found = True
-        await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-                
         key = f"{message.chat.id}-{message.id}"
         _trim_dict(BUTTONS) 
         BUTTONS[key] = {"query": search_query, "total": total_results, "time": time.time()}
         
-        # ⚙️ ഗ്രൂപ്പ്/ചാറ്റ് സെറ്റിങ്സ് എടുത്ത് 'pre' വേരിയബിൾ കൃത്യമായി ഡിഫൈൻ ചെയ്യുന്നു (Error ഫിക്സ്)
+        # സെറ്റിങ്സ് അനുസരിച്ച് ലിങ്ക് ടൈപ്പ് (file/filep) തീരുമാനിക്കുന്നു
         settings = await get_settings(message.chat.id)
         pre = "filep" if settings.get("file_secure", False) else "file"
         
         btn = []
         for file in files[:10]:
-            btn.append([InlineKeyboardButton(text=f"{get_size(file.file_size)}➪{file.file_name}", url=f"https://t.me{temp.U_NAME}?start={pre}_{file.file_id}")])
+            btn.append([InlineKeyboardButton(text=f"{get_size(file.file_size)} ➪ {file.file_name}", url=f"https://t.me{temp.U_NAME}?start={pre}_{file.file_id}")])
 
         if total_results > 10:
-            btn.append([InlineKeyboardButton(text=f"   𝟷 / {math.ceil(int(total_results) / 10)}", callback_data="pages"), InlineKeyboardButton(text="ɴᴇxᴛ", callback_data=f"next_{user_id}_{key}_10")])
-
-        # 📝 പോസ്റ്ററും വലിയ ക്യാപ്ഷനും ഒഴിവാക്കി വെറും സെർച്ച് ചെയ്ത പേര് മാത്രം ക്യാപ്ഷൻ ആക്കുന്നു
-        pm_cap = f"<b><i>🎬 {search_query.upper()}</i></b>"
-
-        try:
-            # 🖼️ ഫോട്ടോ പൂർണ്ണമായി ഒഴിവാക്കി നോർമൽ ടെക്സ്റ്റ് ആയി മറുപടി അയക്കുന്നു
-            await message.reply_text(text=pm_cap, reply_markup=InlineKeyboardMarkup(btn))
-        except Exception as e:
-            logger.error(f"Error sending text reply in pm_text: {e}")
-        return
-
-    # 6. ⚡ [നാലാം ഘട്ടം] ഫോർമാറ്റ് കറക്റ്റാണ് പക്ഷെ ഫയൽ ഇല്ലെങ്കിൽ (റിക്വസ്റ്റ് സബ്മിറ്റ് ചെയ്യുന്നു)
-    if not files_found:
-        if is_muted:
-            if not warning_sent:
-                await db.col.update_one({'id': user_id}, {'$set': {'warning_sent': True}})
-                await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-                await message.reply_text(
-                    text=f"<b>⚠️ റിക്വസ്റ്റ് നിരസിച്ചു!\n\nനിങ്ങളെ അഡ്മിൻ മ്യൂട്ട് ചെയ്തിരിക്കുന്നതിനാൽ പുതിയ റിക്വസ്റ്റുകൾ സബ്മിറ്റ് ചെയ്യാൻ സാധിക്കില്ല. Mute ഒഴിവാക്കാൻ അഡ്മിനെ സമീപിക്കുക @Chithralokham/3</b>"
-                )
-            return
-            
-        await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-        await asyncio.sleep(0.5)
-
-        await message.reply_text(
-            text="<b>Your Request Has Been Submitted✅\n\nOTT Available Add Files With In 24Hrs.. Please Wait\n\nനിങ്ങളുടെ request അഡ്മിൻ അയച്ചിട്ടുണ്ട് ഫയൽസ് ഉണ്ടെങ്കിൽ 24മണിക്കൂറിനുള്ളിൽ ആഡ് ചെയ്യുന്നതാണ്</b>",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🚫 ANY ERROR REPORT 🚫 ", url="https://t.meChithralokham/3")],
-                [InlineKeyboardButton("🚸 MUST READ 🚸", url="http://telegra.ph")]
+            btn.append([
+                InlineKeyboardButton(text=f"𝟷 / {math.ceil(int(total_results) / 10)}", callback_data="pages"), 
+                InlineKeyboardButton(text="ɴᴇxᴛ", callback_data=f"next_{user_id}_{key}_10")
             ])
+
+        # സെർച്ച് ചെയ്ത പേര് മാത്രം ബോൾഡ് ടെക്സ്റ്റ് ആക്കി അയക്കുന്നു
+        caption_text = f"<b>🎬 {search_query.upper()}</b>"
+        return await message.reply_text(text=caption_text, reply_markup=InlineKeyboardMarkup(btn))
+
+    # 5. ഫയലുകൾ ഒന്നും തന്നെ ലഭിച്ചില്ലെങ്കിൽ
+    else:
+        return await message.reply_text(
+            text=f"<b>❌ സിനിമ കണ്ടെത്താനായില്ല!\n\nനിങ്ങൾ തിരഞ്ഞ <code>{message.text}</code> ഡാറ്റാബേസിൽ ലഭ്യമല്ല. സിനിമയുടെ പേരും വർഷവും കൃത്യമാണെന്ന് ഉറപ്പുവരുത്തുക.</b>"
         )
-
-        log_reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💬 MESSAGE USER (DIRECT)", url=f"tg://user?id={user_id}")],
-            [InlineKeyboardButton("🔇 MUTE USER", callback_data=f"dbmute_{user_id}")]
-        ])
-        log_text = f"<b>#PM_MSG\n\nNᴀᴍE : <a href='tg://user?id={user_id}'>{user}</a>\n\nID : <code>{user_id}</code>\n\nMᴇssᴀɢE :</b> <code>{text_to_check}</code>\n\n#id{user_id}"
-
-        try:
-            await bot.send_chat_action(chat_id=LOG_CHANNEL, action=enums.ChatAction.TYPING)
-            await bot.send_message(chat_id=LOG_CHANNEL, text=log_text, reply_markup=log_reply_markup, disable_web_page_preview=True)
-        except Exception as e:
-            logger.error(f"Error sending log to LOG_CHANNEL: {e}")
-
 
 
 
