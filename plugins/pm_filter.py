@@ -748,7 +748,7 @@ async def advantage_spell_chok(client, msg):
         return
 
     # 📝 Heading ചേർക്കുന്നു
-    spell_list_text = script.NO_TXT + "\n\n"
+    spell_list_text = script.NO_TXT + "\n"
     spell_list_text += "<u><b>SUGGESTIONS 👇</b></u>\n\n"
     
     # സജഷനുകൾ HTML-ൽ ബോൾഡ് ആയി ലിസ്റ്റ് ചെയ്യുന്നു (പരമാവധി 10 എണ്ണം)
