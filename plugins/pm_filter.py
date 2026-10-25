@@ -86,7 +86,6 @@ async def google_alert_handler(bot, query):
 
 
 
-
 @Client.on_message(filters.private & (filters.text | filters.photo | filters.video | filters.sticker) & filters.incoming)
 async def pm_text(bot: Client, message):
     user_id = message.from_user.id
@@ -112,27 +111,17 @@ async def pm_text(bot: Client, message):
             await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
             await message.reply_text(
                 text=f"<b>⚠️ ശ്രദ്ധിക്കുക / WARNING!\n\nനിങ്ങൾ ബോട്ടിന്റെ നിയമങ്ങൾ (Rules) ലംഘിച്ചതിനാൽ അഡ്മിൻ നിങ്ങളെ മ്യൂട്ട് ചെയ്തിരിക്കുകയാണ്.\n\nനിയമങ്ങൾ വ്യക്തമായി വായിക്കാൻ താഴെയുള്ള rules ബട്ടൺ ക്ലിക്ക് ചെയ്യുക. Mute ഒഴിവാക്കാൻ അഡ്മിനെ സമീപിക്കുക @Chithralokham</b>",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚸 READ RULES 🚸", url="http://telegra.ph/Request-%E0%B4%85%E0%B4%AF%E0%B4%95%E0%B4%95-%E0%B4%AE%E0%B4%A8%E0%B4%A8-%E0%B4%B5%E0%B4%AF%E0%B4%95%E0%B4%95%E0%B4%A3%E0%B4%9F%E0%B4%A8%E0%B4%A8%E0%B4%A4-08-19")]])
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚸 READ RULES 🚸", url="https://t.me")]])
             )
         return
 
-    # 2. ⚡ [രണ്ടാം ഘട്ടം] ഫോർമാറ്റ് പരിശോധന (Format Validation)
-    if not re.search(r'\b(19\d{2}|20[0-2]\d)\b$', text_to_check):
-        await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
-        await asyncio.sleep(0.5)
-        await message.reply_text(
-            text=f"<b>❌ Wrong Format / തെറ്റായ ഫോർമാറ്റ്!\n\nPlease send your request in this format:\n<code>Movie Name + Year</code>\n\nExample:\n<code>Kuruthi 2021</code>\n\n💡 സിനിമയുടെ പേരിനൊപ്പം വർഷം കൂടി ടൈപ്പ് ചെയ്ത് അയക്കുക.</b>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚸 MUST READ 🚸", url="http://telegra.ph/Request-%E0%B4%85%E0%B4%AF%E0%B4%95%E0%B4%95-%E0%B4%AE%E0%B4%A8%E0%B4%A8-%E0%B4%B5%E0%B4%AF%E0%B4%95%E0%B4%95%E0%B4%A3%E0%B4%9F%E0%B4%A8%E0%B4%A8%E0%B4%A4-08-19")]])
-        )
-        return
-
-    # 3. ⚡ [മൂന്നാം ഘട്ടം] ഡാറ്റാബേസ് സെർച്ചിംഗ്
+    # ⚡ [രണ്ടാം ഘട്ടം] ഡാറ്റാബേസ് സെർച്ചിംഗ് (നേരിട്ട് സെർച്ചിലേക്ക് പോകുന്നു)
     files_found = False
     files = []
     search_query = text_to_check
     files, offset, total_results = await get_search_results(search_query.lower(), offset=0, filter=True)
 
-    # 4. ഫയൽ കണ്ടെത്തിയാൽ ബട്ടണുകൾ നൽകുന്നു
+    # 3. ഫയൽ കണ്ടെത്തിയാൽ ബട്ടണുകൾ നൽകുന്നു
     if files:
         files_found = True
         await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
@@ -143,25 +132,15 @@ async def pm_text(bot: Client, message):
         
         btn = []
         for file in files[:10]:
-            btn.append([InlineKeyboardButton(text=f"{get_size(file.file_size)}➪{file.file_name}", url=f"https://t.me/{temp.U_NAME}?start={pre}_{file.file_id}")])
+            btn.append([InlineKeyboardButton(text=f"{get_size(file.file_size)}➪{file.file_name}", url=f"https://t.me{temp.U_NAME}?start={pre}_{file.file_id}")])
 
         if total_results > 10:
             btn.append([InlineKeyboardButton(text=f"   𝟷 / {math.ceil(int(total_results) / 10)}", callback_data="pages"), InlineKeyboardButton(text="ɴᴇxᴛ", callback_data=f"next_{user_id}_{key}_10")])
-
-        year_match = re.findall(r'\b(19\d{2}|20[0-2]\d)\b', search_query)
-
-        if not year_match and files and hasattr(files[0], 'file_name') and files[0].file_name:
-            found_years = re.findall(r'\b(19\d{2}|20[0-2]\d)\b', files[0].file_name)
-            if found_years:
-                year_match = [found_years[0]]
         
-        detected_year = year_match[0] if year_match else ""
-        movie_year = f" ({detected_year})" if detected_year else ""
-        
-        clean_title = re.sub(r'\b(19\d{2}|20[0-2]\d)\b', '', search_query).strip().upper()
+        clean_title = search_query.upper()
 
         # സിനിമയുടെ പേര് മാത്രം അടങ്ങിയ ലളിതമായ ക്യാപ്ഷൻ
-        pm_cap = f"<b>🎬 {clean_title}{movie_year}</b>"
+        pm_cap = f"<b>🎬 {clean_title}</b>"
 
         try:
             await message.reply_text(text=pm_cap, reply_markup=InlineKeyboardMarkup(btn))
@@ -169,7 +148,7 @@ async def pm_text(bot: Client, message):
             pass
         return
 
-    # 5. ⚡ [നാലാം ഘട്ടം] ഫോർമാറ്റ് കറക്റ്റാണ് പക്ഷെ ഫയൽ ഇല്ലെങ്കിൽ (റിക്വസ്റ്റ് സബ്മിറ്റ് ചെയ്യുന്നു + Admin Log)
+    # 4. ⚡ [മൂന്നാം ഘട്ടം] ഡാറ്റാബേസിൽ ഫയൽ ഇല്ലെങ്കിൽ (റിക്വസ്റ്റ് സബ്മിറ്റ് ചെയ്യുന്നു + Admin Log)
     if not files_found:
         await bot.send_chat_action(chat_id=message.chat.id, action=enums.ChatAction.TYPING)
         await asyncio.sleep(0.5)
@@ -178,8 +157,8 @@ async def pm_text(bot: Client, message):
         await message.reply_text(
             text="<b>Your Request Has Been Submitted✅\n\nOTT Available Add Files With In 24Hrs.. Please Wait\n\nനിങ്ങളുടെ request അഡ്മിൻ അയച്ചിട്ടുണ്ട് ഫയൽസ് ഉണ്ടെങ്കിൽ 24മണിക്കൂറിനുള്ളിൽ ആഡ് ചെയ്യുന്നതാണ്</b>",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🚫 ANY ERROR REPORT 🚫 ", url="https://t.me/Chithralokham/3")],
-                [InlineKeyboardButton("🚸 MUST READ 🚸", url="http://telegra.ph/Request-%E0%B4%85%E0%B4%AF%E0%B4%95%E0%B4%95-%E0%B4%AE%E0%B4%A8%E0%B4%A8-%E0%B4%B5%E0%B4%AF%E0%B4%95%E0%B4%95%E0%B4%A3%E0%B4%9F%E0%B4%A8%E0%B4%A8%E0%B4%A4-08-19")]
+                [InlineKeyboardButton("🚫 ANY ERROR REPORT 🚫 ", url="https://t.meChithralokham/3")],
+                [InlineKeyboardButton("🚸 MUST READ 🚸", url="http://telegra.ph")]
             ])
         )
 
@@ -195,6 +174,7 @@ async def pm_text(bot: Client, message):
             await bot.send_message(chat_id=LOG_CHANNEL, text=log_text, reply_markup=log_reply_markup, disable_web_page_preview=True)
         except Exception as e:
             logger.error(f"Error sending log to LOG_CHANNEL: {e}")
+
 
 
            
