@@ -944,7 +944,7 @@ async def advantage_spell_chok(client, msg):
     
     # സജഷനുകൾ HTML-ൽ ബോൾഡ് ആയി ലിസ്റ്റ് ചെയ്യുന്നു (പരമാവധി 10 എണ്ണം)
     for index, movie_name in enumerate(movielist[:10], start=1):
-        spell_list_text += f"<b>{index}. {movie_name}</b>\n"
+        spell_list_text += f"<b>{index}.</b> <code>{movie_name}</code>\n"
 
     # 📥 ഫോട്ടോ ഇല്ലാതെ വെറും ടെക്സ്റ്റ് മാത്രമായി മറുപടി അയക്കുന്നു
     try:
