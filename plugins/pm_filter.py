@@ -855,18 +855,12 @@ async def auto_filter(client, msg, spoll=False):
 
     reply_markup = InlineKeyboardMarkup(btn)
 
+    # Poster സെക്ഷൻ പൂർണ്ണമായി ഒഴിവാക്കി ടെക്സ്റ്റ് മെസ്സേജ് മാത്രം അയക്കുന്നു
     try:
-        poster = await asyncio.wait_for(get_any_movie_poster(search), timeout=2.0)
-    except Exception:
-        poster = None
-
-    try:
-        if poster:
-            await message.reply_photo(photo=poster, caption=cap, reply_markup=reply_markup)
-        else:
-            await message.reply_text(text=cap, reply_markup=reply_markup, disable_web_page_preview=True)
+        await message.reply_text(text=cap, reply_markup=reply_markup, disable_web_page_preview=True)
     except Exception:
         pass
+
 
 
 async def advantage_spell_chok(client, msg):
@@ -886,8 +880,7 @@ async def advantage_spell_chok(client, msg):
         logger.error(f"Manual filter error in spell check: {e}")
         manual_res = False
 
-    # 🟢 2. മാനുവൽ ഫിൽട്ടറിൽ സിനിമ ഉണ്ടെങ്കിൽ (True ആണെങ്കിൽ) ഫങ്ഷൻ ഇവിടെ വെച്ച് നിർത്തുന്നു
-    # ഗ്രൂപ്പിലേക്ക് സ്പെൽ ചെക്ക് മെസ്സേജ് അയക്കില്ല, സിനിമ ഡാറ്റാബേസിൽ സേവ് ചെയ്യുകയുമില്ല.
+    # 🟢 2. മാനുവൽ ഫിൽട്ടറിൽ സിനിമ ഉണ്ടെങ്കിൽ ഫങ്ഷൻ ഇവിടെ വെച്ച് നിർത്തുന്നു
     if manual_res == True:
         logger.info(f"Manual filter-ൽ സിനിമ ഉള്ളതിനാൽ സ്പെൽ ചെക്ക് ഒഴിവാക്കി.")
         return
@@ -898,7 +891,7 @@ async def advantage_spell_chok(client, msg):
     except Exception as e:
         logger.error(f"Missing movie save error: {e}")
 
-    # 📝 4. സിനിമ ഒന്നിലും ഇല്ലാത്തതുകൊണ്ട് താഴോട്ടുള്ള നിങ്ങളുടെ പഴയ സ്പെൽ ചെക്ക് കോഡുകൾ റൺ ആകുന്നു
+    # 📝 4. സിനിമ ഒന്നിലും ഇല്ലാത്തതുകൊണ്ട് താഴോട്ടുള്ള സ്പെൽ ചെക്ക് കോഡുകൾ റൺ ആകുന്നു
     reqst_gle = quote_plus(mv_rqst)
     google_button = InlineKeyboardMarkup([
         [InlineKeyboardButton("🔎 𝗖𝗼𝗿𝗿𝗲𝗰𝘁 𝗦𝗽𝗲𝗹𝗹𝗶𝗻𝗴 (𝖦𝗈𝗈𝗀𝗅𝖾)", url=f"https://www.google.com/search?q={reqst_gle}")],
@@ -906,6 +899,7 @@ async def advantage_spell_chok(client, msg):
     ])
 
     try:
+        # സിനിമയുടെ വിവരങ്ങൾ എടുക്കാൻ മാത്രം get_poster ഉപയോഗിക്കുന്നു (പോസ്റ്റർ ഇമേജ് ഡൗൺലോഡ് ചെയ്യില്ല)
         movies = await get_poster(cleaned_query, bulk=True)
     except Exception:
         movies = None
@@ -948,42 +942,25 @@ async def advantage_spell_chok(client, msg):
     spell_list_text = script.NO_TXT + "\n\n"
     spell_list_text += "<u><b>SUGGESTIONS 👇</b></u>\n\n"
     
-    # സജഷനുകൾ HTML-ൽ ബോൾഡ് ആയി ലിസ്റ്റ് ചെയ്യുന്നു
-    for index, movie_name in enumerate(movielist[:4], start=1):
+    # സജഷനുകൾ HTML-ൽ ബോൾഡ് ആയി ലിസ്റ്റ് ചെയ്യുന്നു (പരമാവധി 10 എണ്ണം)
+    for index, movie_name in enumerate(movielist[:10], start=1):
         spell_list_text += f"<b>{index}. {movie_name}</b>\n"
 
-    # 🖼️ ഫോട്ടോ എടുക്കാൻ get_any_movie_poster നിലനിർത്തിയിരിക്കുന്നു
-    try: 
-        photo_url = await get_any_movie_poster(cleaned_query)
-    except Exception: 
-        photo_url = None
-
-    if not photo_url:
-        photo_url = "https://files.catbox.moe/8llz8q.jpg"
-
-    # 📥 ഫോട്ടോ സഹിതം മറുപടി അയക്കുന്നു
+    # 📥 ഫോട്ടോ ഇല്ലാതെ വെറും ടെക്സ്റ്റ് മാത്രമായി മറുപടി അയക്കുന്നു
     try:
-        spell_check_del = await msg.reply_photo(
-            photo=photo_url,
-            caption=spell_list_text,
+        spell_check_del = await msg.reply_text(
+            text=spell_list_text,
             reply_markup=google_button,
             reply_to_message_id=msg.id,
-            parse_mode=enums.ParseMode.HTML
+            parse_mode=enums.ParseMode.HTML,
+            disable_web_page_preview=True
         )
     except Exception:
-        # ഫോട്ടോ അയക്കുന്നതിൽ എന്തെങ്കിലും തടസ്സം വന്നാൽ ബാക്കപ്പ് ആയി ടെക്സ്റ്റ് അയക്കും
-        try:
-            spell_check_del = await msg.reply_text(
-                text=spell_list_text,
-                reply_markup=google_button,
-                reply_to_message_id=msg.id,
-                parse_mode=enums.ParseMode.HTML,
-                disable_web_page_preview=True
-            )
-        except Exception:
-            return
-           
-                               
+        return
+
+
+
+        
         
 
 async def global_filters(client, message, text=False):
